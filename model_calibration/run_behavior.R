@@ -1,5 +1,3 @@
-# stupid fucking human mobility model 
-
 #setwd("/Users/sambents/Desktop/Lo/covid_seasonality/data/processed")
 
 # load packages 
@@ -22,6 +20,7 @@ library(gridExtra)
 library(cowplot)
 
 #################################################################
+# Comment out data processing 
 # Data 
 #Location = c( "CT", "GA", "MI",  "MN", "NY",  "OH", "TN", "CA", "CO", "NM", "OR", "UT")
 #pop_size_2023 = c( 3643023,  11064432, 10083356, 5753048, 19737367, 11824034,  7148304, 
@@ -287,34 +286,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     return(total_log_lik)
   }
   
-  
-  
-  
-  
-  #   start_idx <- min(10, length(observed_hosp) - 50)
-  #    end_idx <- length(observed_hosp)
-  
-  #    if(start_idx >= end_idx || length(predicted_hosp) < end_idx || length(observed_hosp) < end_idx) {
-  #      return(-1e6)
-  #    }
-  
-  #    pred_subset <- pmax(predicted_hosp[start_idx:end_idx], 1e-6)
-  #    obs_subset <- observed_hosp[start_idx:end_idx]
-  #    
-  #    if(any(is.na(pred_subset)) || any(is.na(obs_subset))) {
-  #      return(-1e6)
-  #    }
-  
-  # calculate likelihood using poission distribution 
-  #    state_log_lik <- sum(dpois(obs_subset, lambda = pred_subset, log = TRUE))
-  
-  # iteratively add likeliloods from across states 
-  #  total_log_lik <- total_log_lik + state_log_lik
-  #   }
-  #    
-  #    print(total_log_lik)
-  #    return(total_log_lik)
-  #  }
   
   
   # prior function 
