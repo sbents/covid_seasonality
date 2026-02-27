@@ -25,9 +25,9 @@ library(cowplot)
 #setwd("/Users/sambents/Desktop/Lo/covid_seasonality/data/processed")
 
 # DATA ###################################################################################
-Location = c( "CT", "GA", "MI",  "MN", "NY",  "OH", "TN", "CA", "CO", "NM", "OR", "UT")
-pop_size_2023 = c( 3643023,  11064432, 10083356, 5753048, 19737367, 11824034,  7148304, 
-                   39198693,   5901339,  2121164, 4253653, 3443222)
+Location = c(  "GA", "MI",  "MN", "NY",  "OH", "TN", "CA", "CO",  "OR", "UT")
+pop_size_2023 = c( 11064432, 10083356, 5753048, 19737367, 11824034,  7148304, 
+                   39198693,   5901339,  4253653, 3443222)
 census_dat = data.frame(Location, pop_size_2023) 
 
 # Load in data 
@@ -36,13 +36,10 @@ variant_dataset = read.csv("variant_dataset_processed.csv")
 full_calibration_dat = read.csv("processed_calibration_dat.csv")  %>%
   filter(Location %in% c( "CT", "MN", "OH", "MI", "NY", "TN", "GA", 
                           "CA", "CO", "NM", "OR", "UT")) %>%
-  mutate(humid_smooth_mult = ifelse(humid_smooth < 40, 1, 0 )) %>%
   left_join(census_dat, by = "Location") %>%
   left_join(variant_dataset, by = c("Location", "week", "year")) %>%
   mutate(across(slope_pos, ~ replace(., is.na(.), 0)))  %>%
   dplyr::select(-date) 
-
-head(full_calibration_dat)
 
 
 # MCMC ###################################################################################
@@ -55,7 +52,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
   
   # state populations as of the 2023 census 
   state_populations <- list(
-    "CT" = 3643023, 
     "GA" = 11064432, 
     "MN" =  5753048, 
     "OH" = 11824034,
@@ -64,10 +60,8 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
     "TN" = 7148304,
     "CA" =  39198693,
     "CO" = 5901339, 
-    "NM" = 2121164, 
     "OR" = 4253653, 
-    "UT" = 3443222
-  )
+    "UT" = 3443222 )
   
   # SEIRS model code 
   seirs_model_hybrid <- function(t, state, parms) {
@@ -102,7 +96,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
     
     # state calibration data 
     state_data <- parms[["state_data"]] %>%
-      mutate(humid_smooth = ifelse(humid_smooth < 40, humid_smooth* hum_scale, humid_smooth)) %>%
       mutate(immunity_scalar_fitted = ifelse(slope_pos > 0, var_scalar, 1))
     
     # time, specify it must be less than the number of rows in calibration data 
@@ -114,16 +107,15 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
     vax_rate_at_t <- state_data$incident[t_idx]
     humidity_at_t <- state_data$humid_smooth[t_idx]
     temp_at_t <- state_data$inverse_temp[t_idx]
-    #   variant_at_t <- state_data$odds_frequency[t_idx]
+   #variant_at_t <- state_data$odds_frequency[t_idx]
     
-    # seasonal function
-    seasonal <- beta * ( hum * humidity_at_t + temp * temp_at_t  )
+    
+    seasonal <- beta * ((hum_scale*(humidity_at_t  - 40)^2 + hum)  + temp*temp_at_t )
     
     # make seasonal value something small and positive if negative- this should not occur to start with 
     if(!is.finite(seasonal) || seasonal < 0) seasonal <- 0.01
     
     imm_vec = imm  * state_data$immunity_scalar_fitted[t_idx]
-    
     
     #  diff eq's 
     dS <- -seasonal * S * (I + I2) / N -  VE * vax_rate_at_t * S + imm_vax * V
@@ -154,11 +146,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
       state_data <- full_calibration_dat[full_calibration_dat$Location == state_name, ]
       state_data <- state_data[order(state_data$t), ]
       
-      # state-specific parameters
-    #  beta_param <- paste0("beta_", state_name)
-      
-    #  beta_value <- params[[beta_param]]
-    #  
       beta_value <- params[["beta"]]
       
       S0_value <- params[["S0"]] 
@@ -206,24 +193,13 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
       # if model is solved, save output and calculate hospitalizations 
       out_df <- as.data.frame(out)
       
-    #  predicted_hosp <- round((((out_df$I * all_params$hr1 + out_df$I2 * all_params$hr2)/N_val)*100000), digits = 0)
-      
-      # observed data 
-    #  observed_hosp <- round((((state_data$hosp)/N_val)*100000), digits = 0)
-      
       predicted_hosp <- out_df$I * all_params$hr1 + out_df$I2 * all_params$hr2
       
       # observed data 
        observed_hosp <- state_data$hosp
       
       # discard first few samples 
-      
-      #   pred_subset = predicted_hosp[11:length(time_vec)] 
-      #   obs_subset =  observed_hosp[11:length(time_vec)] 
-      #  
-      # discard first few samples in case of initial dynamics 
-      # discard first 15 time points when calculating likelihood
-      start_idx <- 11  # start from the 16th element (discarding first 15)
+      start_idx <- 11  
       end_idx <- length(observed_hosp)
       
       if(start_idx >= end_idx || length(predicted_hosp) < end_idx || length(observed_hosp) < end_idx) {
@@ -240,10 +216,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
       # calculate likelihood using poisson distribution 
       state_log_lik <- sum(dpois(obs_subset, lambda = pred_subset, log = TRUE))
       
-      # adjust 
-      # state_log_lik = state_log_lik * unique(state_data$adjust)
-      
-      
       # iteratively add likelihoods from across states 
       total_log_lik <- total_log_lik + state_log_lik
     }
@@ -253,56 +225,21 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
   }
   
   
-  
-  
-  
-  #   start_idx <- min(10, length(observed_hosp) - 50)
-  #    end_idx <- length(observed_hosp)
-  
-  #    if(start_idx >= end_idx || length(predicted_hosp) < end_idx || length(observed_hosp) < end_idx) {
-  #      return(-1e6)
-  #    }
-  
-  #    pred_subset <- pmax(predicted_hosp[start_idx:end_idx], 1e-6)
-  #    obs_subset <- observed_hosp[start_idx:end_idx]
-  #    
-  #    if(any(is.na(pred_subset)) || any(is.na(obs_subset))) {
-  #      return(-1e6)
-  #    }
-  
-  # calculate likelihood using poission distribution 
-  #    state_log_lik <- sum(dpois(obs_subset, lambda = pred_subset, log = TRUE))
-  
-  # iteratively add likeliloods from across states 
-  #  total_log_lik <- total_log_lik + state_log_lik
-  #   }
-  #    
-  #    print(total_log_lik)
-  #    return(total_log_lik)
-  #  }
-  
   # prior function 
   log_prior <- function(params) {
     
     # global parameters 
     global_bounds <- list(
-      #  var = c(0.05, .09),
-      var_scalar = c(.991, 3), 
-      hum = c(0.00001, .30), 
-      hum_scale = c(.8, 4),
-      temp = c(0.0, 1.5),
+      var_scalar = c(.991, 1.32), 
+      hum = c(5.02, 7),
+      hum_scale = c(0.001, .0058), 
+      temp = c(0.0, 0.08),
       imm = c(1/50, 1/19),
       imm_vax = c(1/20, 1/6),
       hr1 = c(0.0001, 0.05),
       hr2 = c(0.0001, 0.05), 
       S0 = c(0.30, 0.80), 
-      beta = c(.2, .7)
-    )
-    
-    # state-specific parameters 
-   # state_bounds <- list(
-  #    beta = c(0.1, 0.70)
- #   )
+      beta = c(.2, .8) )
     
     # Check global parameters
     for(param_name in names(global_bounds)) {
@@ -313,19 +250,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
         }
       }
     }
-    
-    # Check state-specific parameters
-   # for(state_name in states) {
-  #    # Check beta
-  #    beta_param <- paste0("beta_", state_name)
-  #    if(beta_param %in% names(params)) {
-  #      bounds <- state_bounds[["beta"]]
-  #      if(params[beta_param] < bounds[1] || params[beta_param] > bounds[2]) {
-  #        return(-Inf)
-  #      }
-  #    }
-  #    
-  #  }
     
     return(0)  # Uniform priors within bounds
   }
@@ -350,48 +274,40 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
   
   # initial parameter guesses 
   global_initial <- list(
-    var_scalar = 1.25,
-    #var = .07,
-    hum = .123,   #0.10,
-    hum_scale = 2.33, 
-    temp =.068,   # 0.06,
-    imm = .0506,
+    var_scalar = 1.11,
+    hum = 5.85,  
+    hum_scale = .00217, 
+    temp =.05,   
+    imm = .0494,
     imm_vax = .091,
     hr1 = 0.008,
     hr2 = 0.003, 
-    S0 = 0.307, 
-    beta = .406)
-  
-  
-  # state-specific initial values (only fitted parameters)
- # state_initial <- list()
-#  for(state_name in states) {
-#    state_initial[[paste0("beta_", state_name)]] <- runif(1, 0.25, .45)
-#  }
+    S0 = 0.407, 
+    beta = .60)
   
   # combine initial parameters 
  # initial_params <- c(global_initial, state_initial)
   initial_params <- c(global_initial)
   param_names <- names(initial_params)
   
-  cat("=== PARAMETER SUMMARY ===\n")
-  cat("Total FITTED parameters:", length(param_names), "\n")
-  cat("  Global fitted parameters:", length(global_initial), "\n")
-  cat("    - beta (transmission rate): GLOBAL (shared across all states)\n")
-  cat("    - S0 (initial susceptible fraction): FITTED\n")
-  cat("Total FIXED parameters:", length(states), "\n")
-  cat("  Population sizes (N): FIXED (not fitted)\n")
-  cat("  Other fixed: lp, gamma, VE\n")
-  cat("==========================\n\n")
+#  cat("=== PARAMETER SUMMARY ===\n")
+#  cat("Total FITTED parameters:", length(param_names), "\n")
+#  cat("  Global fitted parameters:", length(global_initial), "\n")
+#  cat("    - beta (transmission rate): GLOBAL (shared across all states)\n")
+#  cat("    - S0 (initial susceptible fraction): FITTED\n")
+#  cat("Total FIXED parameters:", length(states), "\n")
+#  cat("  Population sizes (N): FIXED (not fitted)\n")
+#  cat("  Other fixed: lp, gamma, VE\n")
+#  cat("==========================\n\n")
   
   
   # Test the likelihood function with initial parameters
-  cat("\n=== TESTING LIKELIHOOD FUNCTION ===\n")
+ # cat("\n=== TESTING LIKELIHOOD FUNCTION ===\n")
   test_params <- unlist(initial_params)
   names(test_params) <- param_names
   test_ll <- likelihood_func(test_params)
-  cat("Test likelihood with initial parameters:", test_ll, "\n")
-  cat("=== END TEST ===\n\n")
+ # cat("Test likelihood with initial parameters:", test_ll, "\n")
+ # cat("=== END TEST ===\n\n")
   
   # Function to run a single MCMC chain with JOINT PROPOSALS AT FIXED 16%
   run_chain <- function(chain_id, iterations, burn_in, thin) {
@@ -401,13 +317,12 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
     
     # Perturb initial values for different chains
     if(chain_id > 1) {
-      current_params <- current_params * runif(length(current_params), 0.95, 1.05)
+      current_params <- current_params * runif(length(current_params), 0.80, 1.20)
     }
     
     samples <- matrix(NA, nrow = ceiling((iterations - burn_in) / thin), 
                       ncol = length(param_names))
     colnames(samples) <- param_names
-    
     
     # posterior of current parametres 
     current_log_post <- log_posterior(current_params)
@@ -417,7 +332,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
       cat(sprintf("Warning: Chain %d has non-finite initial log posterior. Adjusting initial values.\n", chain_id))
       attempts <- 0
       while(!is.finite(current_log_post) && attempts < 10) {
-        current_params <- current_params * runif(length(current_params), 0.8, 1.2)
+        current_params <- current_params * runif(length(current_params), 0.80, 1.20)
         current_log_post <- log_posterior(current_params)
         attempts <- attempts + 1
       }
@@ -429,17 +344,10 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
                   chain_id, current_log_post, attempts))
     }
     
-    # FIXED 16% PROPOSAL: Initialize fixed covariance matrix
+    # FIXED PROPOSAL: Initialize fixed covariance matrix
     n_params <- length(param_names)
     
-    # Fixed diagonal covariance matrix using 16% of parameter values
-    # this means: 
-    
-    #  Takes each parameter's current value
-    #  Multiplies by 0.16 to get the standard deviation for proposals
-    # Example: if a parameter = 0.5, then proposal std = 0.5 × 0.16 = 0.08
-    
-    fixed_scales <- abs(current_params) * 0.06  # FIXED 16% proposal
+    fixed_scales <- abs(current_params) * 0.04  # FIXED 16% proposal
     fixed_scales[fixed_scales < 1e-5] <- 1e-4
     proposal_cov <- diag(fixed_scales^2)
     rownames(proposal_cov) <- param_names
@@ -454,13 +362,13 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
     
     sample_idx <- 1
     
-    cat(sprintf("Chain %d: Using FIXED 16%% joint proposals (no adaptation)\n", chain_id))
+    cat(sprintf("Chain %d: Using fixed joint proposals (no adaptation)\n", chain_id))
     
     for(i in 1:iterations) {
       
-      # JOINT PROPOSAL: Propose all parameters at once using FIXED 16% rate
+      # JOINT PROPOSAL: Propose all parameters at once using fixed rate
       tryCatch({
-        # Generate multivariate normal proposal with FIXED covariance
+        # Generate multivariate normal proposal with fixed covariance
         z <- rnorm(n_params)
         proposal_increment <- as.vector(t(chol_cov) %*% z)
         proposed_params <- current_params + proposal_increment
@@ -494,8 +402,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
           }
         }
         
-        # NO ADAPTATION - covariance matrix remains fixed at 16%
-        
       }, error = function(e) {
         cat(sprintf("Error in iteration %d: %s\n", i, e$message))
         # Continue with current parameters
@@ -525,7 +431,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
   }
   
   # run multiple chains
-  cat("Starting hierarchical MCMC with FIXED 16% JOINT PROPOSALS,", n_chains, "chains,", iterations, "iterations\n")
+  cat("Starting hierarchical MCMC with FIXED JOINT PROPOSALS,", n_chains, "chains,", iterations, "iterations\n")
   
   if(n_chains > 1 && requireNamespace("parallel", quietly = TRUE)) {
     chain_results <- mclapply(
@@ -595,14 +501,12 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat, iterations =
 }
 
 
-
-
 #############################################################
 ### Run the hierarchical MCMC calibration 
 results <- run_hierarchical_mcmc_calibration(
   full_calibration_dat = full_calibration_dat,  # your data
-  iterations = 820,     # start small for testing
-  burn_in =0 ,         # burn-in period
+  iterations = 10000,     # start small for testing
+  burn_in = 2000 ,         # burn-in period
   thin = 1,              # thinning interval
   n_chains = 3 )          # number of MCMC chains
 
@@ -617,13 +521,10 @@ all_chains_df <- do.call(rbind, lapply(1:length(results$samples), function(chain
 }))
 
 # Save to CSV
-write.csv(all_chains_df, "mcmc_chains_immtemphumvar_genbeta_jan25.csv", row.names = FALSE)
-
-
+write.csv(all_chains_df, "mcmc_chains_immtemphumvar_genbeta_feb24.csv", row.names = FALSE)
 
 ### Post-processing MCMC results 
-
-sink("mcmc_summary_immtemphumvar_genbeta_jan25.txt")
+sink("mcmc_summary_immtemphumvar_genbeta_feb24.txt")
 
 # Look at convergence diagnostics
 if(!is.null(results$gelman_diag)) {
@@ -655,25 +556,6 @@ print(mean_params)
 
 mean_likelihood <- results$likelihood_func(mean_params)
 cat("\nLog-likelihood at mean parameters:", mean_likelihood, "\n")
-
-# Option 2: Get maximum a posteriori (MAP) estimate
-#cat("\n--- Maximum a posteriori (MAP) estimate ---\n")
-# Calculate log posterior for each sample
-#log_posts <- apply(all_samples_combined, 1, function(params) {
-#  names(params) <- results$param_names
-#  results$log_posterior(params)
-#})
-
-#map_index <- which.max(log_posts)
-#map_params <- all_samples_combined[map_index, ]
-#names(map_params) <- results$param_names
-
-#cat("MAP parameter values:\n")
-#print(map_params)
-
-#map_likelihood <- likelihood_func(map_params)
-#cat("\nLog-likelihood at MAP parameters:", map_likelihood, "\n")
-#cat("Log-posterior at MAP parameters:", log_posts[map_index], "\n")
 
 cat("=== END LIKELIHOOD SUMMARY ===\n")
 

@@ -1,7 +1,6 @@
-# MODEL: MEGA MODEL 
+#setwd("/Users/sambents/Desktop/Lo/covid_seasonality/data/processed")
 
-# SET UP ###################################################################################
-# Load libraries 
+# load packages 
 library(deSolve)
 library(ggplot2) 
 library(lubridate)
@@ -20,25 +19,76 @@ library(coda)
 library(gridExtra)
 library(cowplot)
 
-#####################################################################
-# try to run it in the model 
-#setwd("/Users/sambents/Desktop/Lo/covid_seasonality/data/processed")
+#################################################################
+# Comment out data processing for mobility/behavior data 
+# Data 
+#Location = c( "CT", "GA", "MI",  "MN", "NY",  "OH", "TN", "CA", "CO", "NM", "OR", "UT")
+#pop_size_2023 = c( 3643023,  11064432, 10083356, 5753048, 19737367, 11824034,  7148304, 
+#                   39198693,   5901339,  2121164, 4253653, 3443222)
+#census_dat = data.frame(Location, pop_size_2023) # %>%
 
-# DATA ###################################################################################
-Location = c(  "GA", "MI",  "MN", "NY",  "OH", "TN", "CA", "CO",  "OR", "UT")
-pop_size_2023 = c(  11064432, 10083356, 5753048, 19737367, 11824034,  7148304, 
-                   39198693,   5901339,  4253653, 3443222)
-census_dat = data.frame(Location, pop_size_2023) 
+# Load in data and check that hosp rate per 100k is proper! 
+#full_calibration_dat = read.csv("processed_calibration_dat.csv")  %>%
+#  filter(Location %in% c( "CT", "MN", "OH", "MI", "NY", "TN", "GA", 
+#                          "CA", "CO", "NM", "OR", "UT")) %>%
+#  mutate(humid_smooth_mult = ifelse(humid_smooth < 40, 1, 0 )) %>%
+#  left_join(census_dat, by = "Location") %>%
+#  mutate(hosp_per_100k = (hosp/ pop_size_2023 )*100000)
+#head(full_calibration_dat )
 
-# Load in data 
-variant_dataset = read.csv("variant_dataset_processed.csv")
+# load in behavior data
+#url <- "https://media.githubusercontent.com/media/bansallab/indoor_outdoor/refs/heads/main/indoor_activity_data/indoor_activity_2018_2020.csv"
+#behavior_dat <- read.csv(url)
+#head(behavior_dat)
 
-full_calibration_dat_activity =  read.csv("full_calibration_dat_activity.csv")  %>%
-  filter(Location %in% c( "CT", "MN", "OH", "MI", "NY", "TN", "GA", 
-                          "CA", "CO", "NM", "OR", "UT")) %>%
-  left_join(census_dat, by = c("Location", "pop_size_2023")) %>%
-  left_join(variant_dataset, by = c("Location", "week", "year")) %>%
-  mutate(across(slope_pos, ~ replace(., is.na(.), 0)))  
+#county_list = c(6001, 6013, 6075, 8001, 8005, 8031, 8035, 8059, 9009, 9007, 13097, 13067, 13089, 
+#         13097, 13121, 13135, 13217, 13243, 26049, 26051, 26049, 26065, 26161, 27003, 
+#         27019, 27037, 27053, 27123, 27139, 27163, 35001, 35005, 35013, 35021, 35029, 
+#         35045, 35049, 36001, 36021, 36039, 36041, 36049, 36055, 36053, 36073, 36075, 
+#         36083, 36091, 36093, 36095, 36119, 36135, 39041, 39045, 39049, 39075, 39089, 
+#         39097, 39129, 39143, 39127, 39165, 41005, 41051, 41067, 47017, 47037, 47043, 
+#         47137, 47157, 47165, 47187, 47189, 49035)
+
+#county = c(6001, 6013, 6075, 8001, 8005, 8031, 8035, 8059, 9009, 9007, 13097, 13067, 13089, 
+#                13097, 13121, 13135, 13217, 13243, 26049, 26051, 26049, 26065, 26161, 27003, 
+#                27019, 27037, 27053, 27123, 27139, 27163, 35001, 35005, 35013, 35021, 35029, 
+#                35045, 35049, 36001, 36021, 36039, 36041, 36049, 36055, 36053, 36073, 36075, 
+#                36083, 36091, 36093, 36095, 36119, 36135, 39041, 39045, 39049, 39075, 39089, 
+#                39097, 39129, 39143, 39127, 39165, 41005, 41051, 41067, 47017, 47037, 47043, 
+#                47137, 47157, 47165, 47187, 47189, 49035)
+#Location = c(rep("CA", 3), rep("CO", 5), rep("CT", 2), rep("GA", 8 ), rep("MI", 5), rep("MN", 7),
+#          rep("NM", 7), rep("NY", 15), rep("OH", 10), rep("OR", 3), rep("TN", 8), rep("UT", 1))
+#fips_county = data.frame(county, Location)
+#head(fips_county)
+
+#behavior_dat_clean = behavior_dat %>%
+#  mutate(county = as.numeric(county)) %>%
+#  filter(county %in% county_list) %>%
+#  left_join(fips_county, by = c("county"), relationship = "many-to-many") %>%
+#  group_by(Location, date) %>%
+#  mutate(mean_indoor = mean(indoor_activity)) %>%
+#  mutate(date = as.Date(date)) %>%
+#  mutate(year = year(date), week = week(date)) %>%
+#  filter(year == 2019) 
+  
+#head(behavior_dat_clean)
+
+# plot out indoor activity 
+#ggplot(data = behavior_dat_clean) +
+#  geom_line(aes(x = as.Date(date), y = mean_indoor, col = Location)) +
+#  theme_bw() +
+#  facet_wrap(vars(Location))
+
+#full_calibration_dat_activity = left_join(full_calibration_dat, behavior_dat_clean %>% distinct(Location, week, mean_indoor), 
+#                                          by = c("week", "Location")) %>%
+#  mutate(mean_indoor = if_else(is.na(mean_indoor), 1, mean_indoor)) %>%
+#  mutate(mean_indoor = mean_indoor*100)
+#head(full_calibration_dat_activity)
+
+#write.csv(full_calibration_dat_activity, "full_calibration_dat_activity.csv")
+
+
+full_calibration_dat_activity = read.csv("full_calibration_dat_activity.csv")
 
 # MCMC ###################################################################################
 
@@ -78,10 +128,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     
     # model parameters 
     act = parms[["act"]]
-    var_scalar = parms[["var_scalar"]]
-    hum <- parms[["hum"]] 
-    hum_scale = parms[["hum_scale"]]
-    temp <- parms[["temp"]]
     lp <- parms[["lp"]]
     gamma <- parms[["gamma"]]
     imm <- parms[["imm"]]
@@ -93,8 +139,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     N <- parms[["N"]]
     
     # state calibration data 
-    state_data <- parms[["state_data"]] %>%
-      mutate(immunity_scalar_fitted = ifelse(slope_pos > 0, var_scalar, 1))
+    state_data <- parms[["state_data"]] #
     
     # time, specify it must be less than the number of rows in calibration data 
     t_idx <- round(t)
@@ -103,30 +148,25 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     
     # pull in time series influencing beta 
     vax_rate_at_t <- state_data$incident[t_idx]
-    humidity_at_t <- state_data$humid_smooth[t_idx]
-    temp_at_t <- state_data$inverse_temp[t_idx]
     act_at_t <- state_data$mean_indoor[t_idx]
-    #   variant_at_t <- state_data$odds_frequency[t_idx]
     
-    seasonal <- beta * ((hum_scale*(humidity_at_t  - 40)^2 + hum)  + temp*temp_at_t  + act*act_at_t)
+    # seasonal function
+    seasonal <- beta * ( act* act_at_t )
     
     # make seasonal value something small and positive if negative- this should not occur to start with 
     if(!is.finite(seasonal) || seasonal < 0) seasonal <- 0.01
     
-    imm_vec = imm  * state_data$immunity_scalar_fitted[t_idx]
-    
-    
     #  diff eq's 
-    dS <- -seasonal * S * (I + I2) / N -  VE * vax_rate_at_t * S + imm_vax * V
+    dS <- -seasonal * S * (I + I2) / N - VE * vax_rate_at_t * S + imm_vax * V
     dE <- seasonal * S * (I + I2) / N - lp * E
     dI <- lp * E - gamma * I
-    dR <- I * gamma - R * imm_vec
+    dR <- I * gamma - R * imm
     dV <- VE * vax_rate_at_t * S - imm_vax * V
     
-    dS2 <- -seasonal * S2 * (I + I2) / N + imm_vec * R + imm_vec * R2 + imm_vax * V2 - VE * vax_rate_at_t * S2
+    dS2 <- -seasonal * S2 * (I + I2) / N + imm * R + imm * R2 + imm_vax * V2 - VE * vax_rate_at_t * S2
     dE2 <- seasonal * S2 * (I + I2) / N - lp * E2
     dI2 <- lp * E2 - gamma * I2
-    dR2 <- I2 * gamma - R2 * imm_vec
+    dR2 <- I2 * gamma - R2 * imm
     dV2 <- VE * vax_rate_at_t * S2 - imm_vax * V2
     
     return(list(c(dS, dE, dI, dR, dV, dS2, dE2, dI2, dR2, dV2)))
@@ -145,7 +185,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
       state_data <- full_calibration_dat_activity[full_calibration_dat_activity$Location == state_name, ]
       state_data <- state_data[order(state_data$t), ]
       
-
       beta_value <- params[["beta"]]
       S0_value <- params[["S0"]] 
       N_val <- state_populations[[state_name]]
@@ -162,12 +201,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
       
       # parmraters used in state-specific model 
       all_params <- list(
-        #  var = params["var"], 
-        act = params["act"],
-        var_scalar = params["var_scalar"],
-        hum = params["hum"],
-        hum_scale = params["hum_scale"], 
-        temp = params["temp"],
+        act = params["act"], 
         imm = params["imm"], imm_vax = params["imm_vax"],
         hr1 = params["hr1"], hr2 = params["hr2"],
         beta = beta_value, N = N_val,
@@ -196,8 +230,8 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
       
       # observed data 
       observed_hosp <- state_data$hosp
-    
-      start_idx <- 11  # start from the 16th element (discarding first 15)
+
+      start_idx <- 11  
       end_idx <- length(observed_hosp)
       
       if(start_idx >= end_idx || length(predicted_hosp) < end_idx || length(observed_hosp) < end_idx) {
@@ -223,23 +257,21 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
   }
   
   
+  
   # prior function 
   log_prior <- function(params) {
     
     # global parameters 
     global_bounds <- list(
-      act = c(0, 200),
-      var_scalar = c(.991, 3), 
-      hum = c(4, 7),
-      hum_scale = c(0.001, .007), 
-      temp = c(0.0, 1.5),
+      act = c(.05, 200),
       imm = c(1/50, 1/19),
-      imm_vax = c(1/20, 1/6),
+      imm_vax = c(1/20, 1/8),
       hr1 = c(0.0001, 0.05),
       hr2 = c(0.0001, 0.05), 
       S0 = c(0.30, 0.80), 
       beta = c(.2, .7)
     )
+
     
     # Check global parameters
     for(param_name in names(global_bounds)) {
@@ -275,18 +307,15 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
   
   # initial parameter guesses 
   global_initial <- list(
-    act = 0.001,
-    var_scalar = 1.2,
-    hum = 6,   #0.10,
-    hum_scale = .003, 
-    temp =.06,   # 0.06,
-    imm = .05,
-    imm_vax = .0827,
-    hr1 = 0.008,
-    hr2 = 0.003, 
-    S0 = 0.31, 
-    beta = .43
+    act = .89, 
+    imm = .044,
+    imm_vax = .050,
+    hr1 = 0.047,
+    hr2 = 0.002, 
+    S0 = 0.567, 
+    beta = .344
   )
+  
   
   # combine initial parameters 
   # initial_params <- c(global_initial, state_initial)
@@ -303,7 +332,6 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
   cat("  Other fixed: lp, gamma, VE\n")
   cat("==========================\n\n")
   
-  
   # Test the likelihood function with initial parameters
   cat("\n=== TESTING LIKELIHOOD FUNCTION ===\n")
   test_params <- unlist(initial_params)
@@ -312,7 +340,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
   cat("Test likelihood with initial parameters:", test_ll, "\n")
   cat("=== END TEST ===\n\n")
   
-  # Function to run a single MCMC chain with JOINT PROPOSALS AT FIXED 16%
+  # Function to run a single MCMC chain 
   run_chain <- function(chain_id, iterations, burn_in, thin) {
     
     current_params <- unlist(initial_params)
@@ -320,7 +348,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     
     # Perturb initial values for different chains
     if(chain_id > 1) {
-      current_params <- current_params * runif(length(current_params), 0.80, 1.20)
+      current_params <- current_params * runif(length(current_params), 0.90, 1.10)
     }
     
     samples <- matrix(NA, nrow = ceiling((iterations - burn_in) / thin), 
@@ -336,7 +364,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
       cat(sprintf("Warning: Chain %d has non-finite initial log posterior. Adjusting initial values.\n", chain_id))
       attempts <- 0
       while(!is.finite(current_log_post) && attempts < 10) {
-        current_params <- current_params * runif(length(current_params), 0.80, 1.20)
+        current_params <- current_params * runif(length(current_params), 0.8, 1.2)
         current_log_post <- log_posterior(current_params)
         attempts <- attempts + 1
       }
@@ -350,8 +378,9 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     
     # FIXED PROPOSAL: Initialize fixed covariance matrix
     n_params <- length(param_names)
+  
     
-    fixed_scales <- abs(current_params) * 0.06  
+    fixed_scales <- abs(current_params) * 0.16  
     fixed_scales[fixed_scales < 1e-5] <- 1e-4
     proposal_cov <- diag(fixed_scales^2)
     rownames(proposal_cov) <- param_names
@@ -366,7 +395,7 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
     
     sample_idx <- 1
     
-    cat(sprintf("Chain %d: Using fixed joint proposals (no adaptation)\n", chain_id))
+    cat(sprintf("Chain %d: Using FIXED 16%% joint proposals (no adaptation)\n", chain_id))
     
     for(i in 1:iterations) {
       
@@ -508,19 +537,20 @@ run_hierarchical_mcmc_calibration <- function(full_calibration_dat_activity, ite
 
 
 
-
 #############################################################
 ### Run the hierarchical MCMC calibration 
 results <- run_hierarchical_mcmc_calibration(
   full_calibration_dat_activity = full_calibration_dat_activity,  # your data
   iterations = 10000,     # start small for testing
-  burn_in =2000 ,         # burn-in period
+  burn_in = 2000,         # burn-in period
   thin = 1,              # thinning interval
   n_chains = 3 )          # number of MCMC chains
 
 
 #############################################################
+### Post-processing MCMC results 
 
+# Combine all chains into a single dataframe with chain ID
 all_chains_df <- do.call(rbind, lapply(1:length(results$samples), function(chain_id) {
   chain_data <- as.data.frame(results$samples[[chain_id]])
   chain_data$chain <- chain_id
@@ -529,12 +559,9 @@ all_chains_df <- do.call(rbind, lapply(1:length(results$samples), function(chain
 }))
 
 # Save to CSV
-write.csv(all_chains_df, "mcmc_chains_mega_genbeta_feb18.csv", row.names = FALSE)
+write.csv(all_chains_df, "mcmc_chains_immact_genbeta_jan15.csv", row.names = FALSE)
 
-
-### Post-processing MCMC results 
-
-sink("mcmc_summary_mega_genbeta_feb18.txt")
+sink("mcmc_summary_immact_genbeta_jan15.txt")
 
 # Look at convergence diagnostics
 if(!is.null(results$gelman_diag)) {
@@ -566,11 +593,15 @@ print(mean_params)
 
 mean_likelihood <- results$likelihood_func(mean_params)
 cat("\nLog-likelihood at mean parameters:", mean_likelihood, "\n")
-
 cat("=== END LIKELIHOOD SUMMARY ===\n")
 
 # Close the sink
 sink()
-#dev.off()
+
+
+
+
+
+
 
 
