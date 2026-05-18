@@ -26,5 +26,7 @@ ________________________________________________________________________________
      
 Instructions 
 
+Folders:
+figures: Manuscript_Analyses_SARSCoV2.R contains the code for runnning all analyses and producing all figures in the main text of the manuscript.
 
 
