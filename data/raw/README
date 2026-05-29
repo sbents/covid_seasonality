@@ -1,1 +1,65 @@
 Raw data sources used in model. 
+
+Hospitalizations: 
+COVID-NET: https://www.cdc.gov/covid/php/covid-net/index.html 
+Description: COVID-NET reports a weekly COVID-19 associated hospitalization incidence (per 100,00
+persons), which we transformed to absolute weekly counts for each state by scaling it to the
+state’s population based on the 2023 census. A COVID-19-associated hospitalization is defined
+by a positive SARS-CoV-2 test within 14 days before or during hospital admission with a
+clinically compatible presentation.
+
+Vaccination: 
+COVIDVaxView: https://www.cdc.gov/covidvaxview/weekly-dashboard/index.html
+Monthly Cumulative Number and Percent of Persons Who Received 1+ COVID-19 Vaccination Doses,
+by Season, Age Group, and Jurisdiction, United States:
+https://data.cdc.gov/Vaccinations/Monthly-Cumulative-Number-and-Percent-of-Persons-W/3bmy-cyyd/about_data 
+Description: For vaccination data up until 2024, we used the CDC CovidVax dataset for state-level
+vaccination data. Data was processed to calculate weekly vaccination rates. Incident vaccinations
+were computed as the difference in cumulative doses administered between consecutive time
+points, then normalized by state population size (2023 Census estimates) to obtain weekly
+vaccination rates. For the 2024-25 vaccination data, we sourced monthly observed vaccination uptake data from
+the CDC. The data provides the cumulative number of doses administered across US states at
+the monthly timescale. From this, we calculated monthly incident doses administered and then
+disaggregated this to a weekly timescale. To transform this into the proportion of the population
+that received vaccination on the weekly timescale, we divided weekly incident doses
+administered by the population size of the state, ensuring overall vaccination coverage levels
+were preserved.
+
+Climate: 
+Google Earth Engine: DOI: 10.1016/j.rse.2017.06.031
+Description: Climate data for relative humidity and temperature were sourced from Google Earth Engine
+(GEE). We calculated the mean weekly temperature and relative humidity for each state,
+averaging over the specific counties that report to the COVID-NET surveillance program. This 
+ensured that the climate exposures implemented in the model were derived from the
+geographical area that reported COVID-19-associated hospitalizations, which is particularly
+important for larger US states where there is substantial variation in climate across the state.
+Using GEE, we extracted ERA5-Land hourly temperature and dewpoint data and aggregated it
+into weekly averages. From temperature and dewpoint data, the vapor pressure deficit is
+calculated and then converted to relative humidity (%) using a standard meteorological formula
+(Magnus approximation).
+
+Variants:
+CDC SARS-CoV-2 Variant Proportions: https://data.cdc.gov/Laboratory-Surveillance/SARS-CoV-2-Variant-Proportions/jr58-6ysp/about_data
+Description: We considered the role of variant activity by sourcing CDC SARS-CoV-2 Variant Proportion
+dataset, and calculated shares of variant dominance. This dataset provided the biweekly
+proportion of each circulating variant that was observed from hospital-based samples across the
+Department of Health and Human Service regions48: New York (Region 2- New York City),
+Georgia, Tennessee (Region 4- Atlanta), Michigan, Minnesota, Ohio, (Region 5- Chicago), Utah,
+Colorado (Region 8- Denver), California (Region 9- San Francisco), Oregon (Region 10-
+Seattle). Individual lineages were grouped into broader variant classifications: BA.1.1 (BA.1.1,
+B.1.1.529), BQ (BQ.1, BQ.1.1), BA.2 (BA.2, BA.2.12.1), BA.4/5 (BA.4, BA.5), XBB (XBB.1.5,
+XBB.1.9.1, XBB.1.16, XBB.2.3), EG/HV (EG.5, HV.1), JN.1 (JN.1, JN.1.7), KP/LB (KP.2,
+KP.2.3, KP.3, KP.3.1.1, LB.1), and a residual low-circulating variants category (comprised <
+10% in a given region-time period). To obtain weekly shares of variant dominance, we
+disaggregated the biweekly time series by interpolating a week’s share as the average and current
+lagged biweekly values.
+
+Mobility: 
+SafeGraph (processed at: https://github.com/bansallab/indoor_outdoor/tree/main/indoor_activity_data)
+Description: Human behavior was tested as a candidate model covariate using previously processed state-
+level SafeGraph data. Briefly, SafeGraph Points of Interest (POIs) across the United States,
+were categorized using six-digit NAICS codes as primarily indoor, outdoor, or unclear. Using
+weekly county-level visit counts, the indoor activity metric was defined as the ratio of
+normalized indoor to outdoor visits, which was then mean-centered at the county level. We
+subsetted this dataset to only include counties that report to COVID-NET and averaged across
+these counties to obtain representative means at the state level.
