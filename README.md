@@ -28,8 +28,8 @@ Instructions
 
 Folders:
 
-1. data: all raw and processed data used to fit models 
-2. model_calibration: files to calibrate each of the seven model formulations 
+1. data: All raw and processed data used to fit models 
+2. model_calibration: Files to calibrate each of the seven model formulations 
 3. figures: Code for runnning all analyses and producing all figures in the main text of the manuscript.
 
 
