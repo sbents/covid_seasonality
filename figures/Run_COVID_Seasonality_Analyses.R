@@ -157,13 +157,12 @@ for(m in 1:length(states)) {
   
   # Original parameters
   param <- c(
-    var_scalar = 1.25,  # 1.24, 
-    #   hum = 6.8,
-    hum_scale = 0.00205, #.000697, #  0.00217, 
+    var_scalar = 1.25, 
+    hum_scale = 0.00205, 
     act = 0,
-    temp = .0582 ,   #.07,  
+    temp = .0582 ,  
     imm = .0505,
-    imm_vax  = .0799,   #.098,
+    imm_vax  = .0799,  
     hr = best_h1[m],
     hr2 =  best_h2[m],
     beta = best_beta[m],
@@ -315,7 +314,7 @@ param_sds <- list(
 # Number of simulations
 n_simulations <- 200
 
-# State fits
+# State fits from prior calibration step
 states = c("CA","CO", "GA" , "MI", "MN", "NY", "OH", "OR", "TN", "UT")
 best_beta = c(.616, .426, .454, .438, .382, .356, .380, .518, .471, .562 )
 best_S0 = c(.369, .6959, .359, .360, .517, .5578, .5511, .2551, .380, .243  )
@@ -735,9 +734,7 @@ plot_ex_2023_final <- ggplot( data =
     plot.title      = element_text(size = 24),   # title
     plot.subtitle      = element_text(size = 24), 
     axis.title.x    = element_blank(),   # x-axis title
-    # axis.title.y    = element_text(size = 16),   # y-axis title
     axis.text.x     = element_text(size = 20),   # x-axis tick labels
-    #  axis.text.y     = element_text(size = 12) ,   # y-axis tick labels
     axis.title.y    = element_blank(), 
     axis.text.y    = element_blank(), 
     legend.text = element_text(size = 20), legend.title = element_text(size = 20)) +
@@ -981,7 +978,6 @@ for(g in 1:length(states)){
   temp_range <- seq(min_temp, max_temp, length.out = 75)
   
   climate_grid <- expand.grid(rh = rh_range, temp = temp_range) %>%
-    #  mutate(rh_transformed = ifelse(rh < 40, rh * 2.35, rh)) %>%
     mutate(rh_transformed = fitted_b2 *(rh- 40)^2 + fitted_b3) %>%
     mutate(temp_transformed = -temp - min(-temp))
   
@@ -1088,7 +1084,6 @@ plot_phen = ggplot(data = plot_phenotypes) +
   theme( plot.subtitle = element_text(size = 11),
          legend.position = "bottom",
          panel.grid.minor = element_blank()) +
-  # theme(axis.title.x = element_blank()) + # +
   ylim(c(0, 20)) +
   facet_wrap(vars(Phenotype), ncol = 1) +
   scale_y_continuous(
@@ -1115,7 +1110,6 @@ plot_phen1 = ggplot(data = plot_phenotypes) +
   theme( plot.subtitle = element_text(size = 11),
          legend.position = "bottom",
          panel.grid.minor = element_blank()) +
-  # theme(axis.title.x = element_blank()) + # +
   ylim(c(0, 20)) +
   scale_y_continuous(
     limits = c(0, 15),
